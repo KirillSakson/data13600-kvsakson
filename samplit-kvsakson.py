@@ -6,7 +6,7 @@ import sys
 
 def main():
     if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} <filename>", file=sys.stderr)
+        print(f"How to use: {sys.argv[0]} <filename>", file=sys.stderr)
         sys.exit(1)
 
     filename = sys.argv[1]
@@ -16,7 +16,7 @@ def main():
                 if random.random() < 0.01:
                     sys.stdout.write(line)
     except OSError as e:
-        print(f"Error: cannot read '{filename}': {e}", file=sys.stderr)
+        print(f"Error occurred: cannot read '{filename}': {e}", file=sys.stderr)
         sys.exit(1)
 
 
