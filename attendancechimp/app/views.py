@@ -33,7 +33,25 @@ def index(request):
     context = {}
     return render(request, 'app/index.html', context)
 
+def time_view(request):
+    chicago_time = datetime.now(CDT)
+    formatted_time = chicago_time.strftime("%H:%M")
+    return HttpResponse(formatted_time, content_type="text/plain")
 
+def sum_view(request):
+    try:
+        # getting request parameters and converting them
+        n1 = float(request.GET["n1"])
+        n2 = float(request.GET["n2"])
+        
+        res = n1 + n2
+        
+        if res.is_integer():
+            res = int(res)
+        
+        return JsonResponse({"sum": res})
+    except (KeyError, ValueError):
+        return JsonResponse({"error": "Provide valid n1 and n2 parameters, please"}, status=400)
 
 # ---------------------------------------------------------------------------
 # HW4  — user creation
