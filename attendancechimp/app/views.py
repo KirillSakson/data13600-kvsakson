@@ -49,7 +49,7 @@ def sum_view(request):
         if res.is_integer():
             res = int(res)
         
-        return JsonResponse({"sum": res})
+        return JsonResponse({f"<p>{res}</p>"})
     except (KeyError, ValueError):
         return JsonResponse({"error": "Provide valid n1 and n2 parameters, please"}, status=400)
 
