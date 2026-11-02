@@ -1,20 +1,72 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>AttendanceChimp</title>
+  <head>
+    <meta charset="UTF-8" />
+    <title>AttendanceChimp - Home</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin: 40px; }
-        .bio { max-width: 600px; margin: 0 auto; }
-        .username { font-weight: bold; font-size: 1.2em; }
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        margin: 40px;
+      }
+      .bio {
+        max-width: 600px;
+        margin: 0 auto;
+        text-align: left;
+      }
+      .bio h1 {
+        text-align: center;
+      }
+      .user-info {
+        text-align: center;
+      }
+      .username {
+        font-weight: bold;
+        font-size: 1.2em;
+      }
     </style>
-</head>
-<body>
-<div class="bio">
-    <h1>AttendanceChimp</h1>
-    <p>Electronic class attendance tracking application.</p>
-    <hr>
+  </head>
+  <body>
+    <div class="bio">
+      <h1>AttendanceChimp</h1>
+      <p>
+        The application tracks class attendance using QR codes, stores data in a
+        relational database, and exposes its functionality through a web
+        interface and API endpoints.
+      </p>
+      <p>AttendanceChimp is a web application for college instructors:</p>
+      <ol>
+        <li>
+          The instructor logs in and generates a unique QR code for a class
+          session.
+        </li>
+        <li>The QR code is projected on a classroom screen.</li>
+        <li>
+          Students photograph the QR code with their phones and upload the image
+          to the application.
+        </li>
+        <li>
+          The application decodes the QR code, matches it to the lecture, and
+          records the student's attendance.
+        </li>
+      </ol>
+      <hr />
+      <div class="user-info">
+        {% if user.is_authenticated %}
+        <p>Logged in as: <span class="username">{{ user.username }}</span></p>
 
-</div>
-</body>
+        <form method="POST" action="{% url 'logout' %}">
+          {% csrf_token %}
+          <button type="submit">Log Out</button>
+        </form>
+        {% else %}
+        <p><strong>Not logged in.</strong></p>
+        <p><a href="{% url 'login' %}">Log In</a></p>
+        <p><a href="{% url 'new' %}">Sign Up</a></p>
+        {% endif %}
+
+        <p>Current time (Chicago): {{ current_time }}</p>
+      </div>
+    </div>
+  </body>
 </html>
