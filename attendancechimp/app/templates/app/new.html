@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>AttendanceChimp - Sign Up</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        margin: 40px;
+      }
+
+      .form-container {
+        max-width: 400px;
+        margin: 0 auto;
+        text-align: left;
+      }
+
+      .form-container h1 {
+        text-align: center;
+      }
+
+      .form-field {
+        margin-bottom: 15px;
+      }
+
+      .form-field label {
+        display: block;
+        margin-bottom: 5px;
+      }
+
+      .form-field input {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 8px;
+      }
+
+      .radio-group label {
+        display: block;
+        margin-bottom: 5px;
+      }
+
+      button {
+        padding: 10px 20px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="form-container">
+      <h1>AttendanceChimp</h1>
+      <h2>Sign Up</h2>
+
+      <form id="signup-form" action="/app/createUser" method="POST">
+        {% csrf_token %}
+
+        <div class="form-field">
+          <label for="user_name">Username:</label>
+          <input type="text" id="user_name" name="user_name" required />
+        </div>
+
+        <div class="form-field">
+          <label for="email">Email:</label>
+          <input type="email" id="email" name="email" required />
+        </div>
+
+        <div class="form-field">
+          <label for="password">Password:</label>
+          <input type="password" id="password" name="password" required />
+        </div>
+
+        <div class="radio-group">
+          <p>Register as:</p>
+
+          <label>
+            <input type="radio" name="is_student" value="1" checked />
+            Student
+          </label>
+
+          <label>
+            <input type="radio" name="is_student" value="0" />
+            Instructor
+          </label>
+        </div>
+
+        <p>
+          <button type="submit">Sign Up</button>
+        </p>
+      </form>
+    </div>
+    <script>
+      document
+        .getElementById("signup-form")
+        .addEventListener("submit", async function (event) {
+          event.preventDefault();
+
+          const form = event.target;
+          const response = await fetch(form.action, {
+            method: "POST",
+            body: new FormData(form),
+          });
+
+          if (response.ok) {
+            window.location.href = "/app/";
+          } else {
+            const message = await response.text();
+            alert(message);
+          }
+        });
+    </script>
+  </body>
+</html>
