@@ -1,0 +1,24 @@
+# python cache
+__pycache__/
+*.pyc
+
+# django local database
+db.sqlite3
+
+# django migrations (HW5 requirement)
+attendancechimp/app/migrations/
+
+# uploaded files
+media/
+
+# virtual environments
+venv/
+.venv/
+env/
+
+# environment variables
+.env
+
+# IDE files
+.vscode/
+.idea/
