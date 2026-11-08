@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>QR Code Upload - AttendanceChimp</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        margin: 40px;
+      }
+      .form-container {
+        max-width: 400px;
+        margin: 0 auto;
+        text-align: left;
+      }
+      h1,
+      h2 {
+        text-align: center;
+      }
+      button {
+        padding: 10px 20px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="form-container">
+      <h1>AttendanceChimp</h1>
+      <h2>Upload QR Code</h2>
+
+      <form
+        action="/app/createQRCodeUpload"
+        method="POST"
+        enctype="multipart/form-data"
+      >
+        {% csrf_token %}
+
+        <label for="imageUpload">Select QR Code Image:</label>
+        <input
+          type="file"
+          id="imageUpload"
+          name="imageUpload"
+          accept="image/*"
+          required
+        />
+
+        <div class="form-field">
+          <label for="lecture_id">Lecture (optional):</label>
+
+          <select id="lecture_id" name="lecture_id">
+            <option value="">No lecture selected</option>
+
+            {% for lecture in lectures %}
+            <option value="{{ lecture.id }}">
+              {{ lecture.course.name }} - {{ lecture.date }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <p><button type="submit">Upload</button></p>
+      </form>
+    </div>
+  </body>
+</html>

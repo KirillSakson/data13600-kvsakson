@@ -125,7 +125,7 @@ class Lecture(models.Model):
 
     id = models.AutoField(primary_key=True)
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
-    date = models.DateTimeField()
+    date = models.DateField()
     qr_identifier = models.UUIDField(default=uuid.uuid4, unique=True)
 
     def __str__(self):

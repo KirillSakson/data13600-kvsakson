@@ -55,6 +55,12 @@
         {% if user.is_authenticated %}
         <p>Logged in as: <span class="username">{{ user.username }}</span></p>
 
+        {% if user.instructorprofile %}
+        <p>
+          <a href="{% url 'dumpUploads' %}">Export QR Code Uploads (JSON)</a>
+        </p>
+        {% endif %}
+
         <form method="POST" action="{% url 'logout' %}">
           {% csrf_token %}
           <button type="submit">Log Out</button>

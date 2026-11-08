@@ -16,10 +16,8 @@ import zoneinfo
 import json
 import io
 
-from .models import (InstructorProfile, StudentProfile)
-#                      , Course, Enrollment,
-#                      Lecture, QRCodeUpload, is_instructor, is_student,
-#                      getUploadsForCourse)
+from .models import (InstructorProfile, StudentProfile, Course, Lecture, QRCodeUpload)
+#                      Enrollment, QRCodeUpload, is_instructor, is_student, getUploadsForCourse
 
 CDT = zoneinfo.ZoneInfo("America/Chicago")
 
@@ -125,8 +123,196 @@ def createUser(request):
 # ---------------------------------------------------------------------------
 # HW5  — courses, lectures, QR uploads, dump
 # ---------------------------------------------------------------------------
+import uuid
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_GET
 
 
+@login_required
+def new_course(request):
+    return render(request, "app/new_course.html")
+
+
+@login_required
+def new_lecture(request):
+    courses = Course.objects.all()
+
+    context = {
+        "courses": courses,
+    }
+
+    return render(request, "app/new_lecture.html", context)
+
+
+@login_required
+def new_qr_upload(request):
+    lectures = Lecture.objects.all().order_by("-date")
+
+    context = {
+        "lectures": lectures,
+    }
+
+    return render(request, "app/new_qr_upload.html", context)
+
+
+@csrf_exempt
+@require_POST
+def createCourse(request):
+    # check that the logged in user belongs to instructor table
+    if not request.user.is_authenticated:
+        return HttpResponse("Unauthorized", status=401)
+
+    instructor = InstructorProfile.objects.filter(user=request.user).first()
+
+    if instructor is None:
+        return HttpResponse("Unauthorized", status=401)
+
+    # get data from the form
+    course_name = request.POST.get("course-name", "").strip()
+    course_code = request.POST.get("course-code", "").strip().upper()
+    start_time = request.POST.get("start-time", "")
+    end_time = request.POST.get("end-time", "")
+
+    # get selected weekdays
+    days = {
+        "day-mon": "Mon",
+        "day-tue": "Tue",
+        "day-wed": "Wed",
+        "day-thu": "Thu",
+        "day-fri": "Fri",
+    }
+
+    selected_days = []
+
+    for field, day in days.items():
+        if field in request.POST:
+            selected_days.append(day)
+
+    # validate the form data
+    if not course_name or not start_time or not end_time or not selected_days:
+        return HttpResponseBadRequest("Missing required fields.")
+
+    if Course.objects.filter(name=course_name).exists():
+        return HttpResponseBadRequest("Course already exists.")
+
+    # prepare the course fields
+    meeting_schedule = f"{', '.join(selected_days)} {start_time}-{end_time}"
+    
+    # generate a code if none was provided
+    if not course_code:
+        course_code = uuid.uuid4().hex[:12].upper()
+        while Course.objects.filter(code__iexact=course_code).exists():
+            course_code = uuid.uuid4().hex[:12].upper()
+
+    # check uniqueness of the code, case insensitive
+    if Course.objects.filter(code__iexact=course_code).exists():
+        return HttpResponseBadRequest("Course code already exists!")
+
+    # save the course to the database
+    Course.objects.create(
+        name=course_name,
+        code=course_code,
+        meeting_schedule=meeting_schedule,
+        instructor=instructor,
+    )
+
+    return HttpResponse("Course created successfully.", status=200)
+
+
+@csrf_exempt
+@require_POST
+def createLecture(request):
+    # check that the logged in user belongs to instructor table
+    if not request.user.is_authenticated:
+        return HttpResponse("Unauthorized", status=401)
+
+    if not InstructorProfile.objects.filter(user=request.user).exists():
+        return HttpResponse("Unauthorized", status=401)
+
+    # get the selected course name
+    course_name = request.POST.get("choice", "").strip()
+
+    if not course_name:
+        return HttpResponseBadRequest("Missing course name!")
+
+    # find the selected course
+    course = Course.objects.filter(name=course_name).first()
+
+    if course is None:
+        return HttpResponseBadRequest("Course does not exist!")
+
+    # create a lecture associated with this course
+    Lecture.objects.create(
+        course=course,
+        date=datetime.now(CDT).date(),
+    )
+
+    return HttpResponse("Lecture created successfully.", status=200)
+
+
+@csrf_exempt
+@require_POST
+def createQRCodeUpload(request):
+    # check that the logged in user belongs to student table
+    if not request.user.is_authenticated:
+        return HttpResponse("Unauthorized", status=401)
+
+    student = StudentProfile.objects.filter(user=request.user).first()
+
+    if student is None:
+        return HttpResponse("Unauthorized", status=401)
+
+    # get the uploaded image
+    image = request.FILES.get("imageUpload")
+
+    if image is None:
+        return HttpResponseBadRequest("No image uploaded!")
+    
+    # get the lecture (optional)
+    lecture_id = request.POST.get("lecture_id", "").strip()
+    lecture = None
+    
+    if lecture_id:
+        if not lecture_id.isdigit():
+            return HttpResponseBadRequest("Invalid lecture ID!")
+
+        lecture = Lecture.objects.filter(id=int(lecture_id)).first()
+
+        if lecture is None:
+            return HttpResponseBadRequest("Lecture does not exist!")
+
+    # save the upload to the database
+    QRCodeUpload.objects.create(
+        student=student,
+        image=image,
+        lecture=lecture,
+    )
+
+    return HttpResponse("QR code uploaded successfully.", status=200)
+
+
+@require_GET
+def dumpUploads(request):
+    # check that the logged in user belongs to instructor table
+    if not request.user.is_authenticated:
+        return HttpResponse("Unauthorized", status=401)
+
+    if not InstructorProfile.objects.filter(user=request.user).exists():
+        return HttpResponse("Unauthorized", status=401)
+
+    # retrieve all QR code uploads from db
+    uploads = QRCodeUpload.objects.all()
+
+    # prepare the JSON data
+    data = []
+
+    for upload in uploads:
+        data.append({
+            "username": upload.student.user.username,
+            "upload_time": upload.uploaded_at.strftime("%Y-%m-%d %H:%M:%S")
+        })
+
+    return JsonResponse(data, safe=False)
 
 # ---------------------------------------------------------------------------
 # HW6  — getUploads
