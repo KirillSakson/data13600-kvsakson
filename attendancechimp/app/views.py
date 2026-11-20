@@ -169,7 +169,12 @@ def createCourse(request):
 
     # get data from the form
     course_name = request.POST.get("course-name", "").strip()
-    course_code = request.POST.get("course-code", "").strip()
+    course_code = (
+        request.POST.get("course-code")
+        or request.POST.get("course")
+        or request.POST.get("course-number")
+        or course_name
+    ).strip()
     start_time = request.POST.get("start-time", "")
     end_time = request.POST.get("end-time", "")
 
@@ -197,12 +202,6 @@ def createCourse(request):
 
     # prepare the course fields
     meeting_schedule = f"{', '.join(selected_days)} {start_time}-{end_time}"
-    
-    # generate a code if none was provided
-    if not course_code:
-        course_code = uuid.uuid4().hex[:12].upper()
-        while Course.objects.filter(course__iexact=course_code).exists():
-            course_code = uuid.uuid4().hex[:12].upper()
 
     # check uniqueness of the code, case insensitive
     if Course.objects.filter(course__iexact=course_code).exists():
