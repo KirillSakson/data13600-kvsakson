@@ -287,33 +287,31 @@ def createQRCodeUpload(request):
     if image is None:
         return HttpResponseBadRequest("No image uploaded!")
     
-    # get the course code
+    # get the course code and lecture id
     course_code = request.POST.get("course-code", "").strip()
-    
-    if not course_code:
-        return HttpResponseBadRequest("Course code is required!")
-    
-    # find the course
-    course = Course.objects.filter(course=course_code).first()
-
-    if course is None:
-        return HttpResponseBadRequest("Course does not exist.")
-    
-    # get the lecture (optional)
     lecture_id = request.POST.get("lecture_id", "").strip()
     lecture = None
     
-    if not lecture_id:
-        return HttpResponseBadRequest("Invalid lecture ID!")
+    if course_code or lecture_id:
+        # if either field is provided, require both
+        if not course_code or not lecture_id:
+            return HttpResponseBadRequest("Both course code and lecture are required.")
 
-    lecture = Lecture.objects.filter(id=int(lecture_id)).first()
+        course = Course.objects.filter(course=course_code).first()
 
-    if lecture is None:
-        return HttpResponseBadRequest("Lecture does not exist!")
-        
-    # ensure the lecture belongs to the specified course
-    if lecture.course_id != course.id:
-        return HttpResponseBadRequest("Lecture does not belong to the specified course!")
+        if course is None:
+            return HttpResponseBadRequest("Course does not exist!")
+
+        if not lecture_id.isdigit():
+            return HttpResponseBadRequest("Invalid lecture ID!")
+
+        lecture = Lecture.objects.filter(
+            id=int(lecture_id),
+            course=course
+        ).first()
+
+        if lecture is None:
+            return HttpResponseBadRequest("Lecture does not belong to the specified course!")
 
     # save the upload to the database
     QRCodeUpload.objects.create(
