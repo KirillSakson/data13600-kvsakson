@@ -18,7 +18,8 @@ Entities
 
 from django.db import models
 from django.contrib.auth.models import User
-
+from django.utils import timezone
+from zoneinfo import ZoneInfo
 import logging
 import string
 import random
@@ -77,12 +78,34 @@ class Course(models.Model):
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=200)
-    code = models.CharField(max_length=30, unique=True)
+    course = models.CharField(max_length=30, unique=True)
     meeting_schedule = models.CharField(max_length=255)
     instructor = models.ForeignKey(InstructorProfile, on_delete=models.PROTECT)
+    
+    # meeting times
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+
+    # meeting days
+    day_mon = models.BooleanField(default=False)
+    day_tue = models.BooleanField(default=False)
+    day_wed = models.BooleanField(default=False)
+    day_thu = models.BooleanField(default=False)
+    day_fri = models.BooleanField(default=False)
 
     def __str__(self):
         return self.code + ": " + self.name
+    
+    def meets_on_day(self, weekday):
+        days = {
+            0: self.day_mon,
+            1: self.day_tue,
+            2: self.day_wed,
+            3: self.day_thu,
+            4: self.day_fri,
+        }
+
+        return days.get(weekday, False)
 
 # ---------------------------------------------------------------------------
 # Enrollment
@@ -186,3 +209,33 @@ def enroll_student(student, course):
 
     logger.info("Enrolled %s in %s", student.student_number, course.code)
     return enrollment
+
+
+def getUploadsForCourse(course):
+    # find the course by its course number
+    course_obj = Course.objects.filter(course=course).first()
+
+    if course_obj is None:
+        return []
+
+    # get uploads associated with this course
+    uploads = QRCodeUpload.objects.filter(lecture__course=course_obj)
+
+    valid_uploads = []
+    chicago_tz = ZoneInfo("America/Chicago")
+
+    for upload in uploads:
+        # convert the UTC upload time to Chicago time
+        local_time = timezone.localtime(upload.uploaded_at, chicago_tz)
+
+        # check whether the course meets on this weekday
+        if not course_obj.meets_on_day(local_time.weekday()):
+            continue
+
+        # check whether the upload occurred during class
+        upload_time = local_time.time()
+
+        if course_obj.start_time <= upload_time <= course_obj.end_time:
+            valid_uploads.append(upload)
+
+    return valid_uploads

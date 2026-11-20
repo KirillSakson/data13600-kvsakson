@@ -16,7 +16,7 @@ import zoneinfo
 import json
 import io
 
-from .models import (InstructorProfile, StudentProfile, Course, Lecture, QRCodeUpload)
+from .models import (InstructorProfile, StudentProfile, Course, Lecture, QRCodeUpload, getUploadsForCourse)
 #                      Enrollment, QRCodeUpload, is_instructor, is_student, getUploadsForCourse
 
 CDT = zoneinfo.ZoneInfo("America/Chicago")
@@ -201,19 +201,38 @@ def createCourse(request):
     # generate a code if none was provided
     if not course_code:
         course_code = uuid.uuid4().hex[:12].upper()
-        while Course.objects.filter(code__iexact=course_code).exists():
+        while Course.objects.filter(course__iexact=course_code).exists():
             course_code = uuid.uuid4().hex[:12].upper()
 
     # check uniqueness of the code, case insensitive
-    if Course.objects.filter(code__iexact=course_code).exists():
+    if Course.objects.filter(course__iexact=course_code).exists():
         return HttpResponseBadRequest("Course code already exists!")
+    
+    # check start and end times
+    try:
+        start_time_obj = datetime.strptime(start_time, "%H:%M").time()
+        end_time_obj = datetime.strptime(end_time, "%H:%M").time()
+    except ValueError:
+        return HttpResponseBadRequest("Invalid time format.")
+
+    if start_time_obj >= end_time_obj:
+        return HttpResponseBadRequest("End time must be after start time.")
 
     # save the course to the database
     Course.objects.create(
         name=course_name,
-        code=course_code,
+        course=course_code,
         meeting_schedule=meeting_schedule,
         instructor=instructor,
+
+        start_time=start_time_obj,
+        end_time=end_time_obj,
+
+        day_mon="day-mon" in request.POST,
+        day_tue="day-tue" in request.POST,
+        day_wed="day-wed" in request.POST,
+        day_thu="day-thu" in request.POST,
+        day_fri="day-fri" in request.POST,
     )
 
     return HttpResponse("Course created successfully.", status=200)
@@ -268,18 +287,33 @@ def createQRCodeUpload(request):
     if image is None:
         return HttpResponseBadRequest("No image uploaded!")
     
+    # get the course code
+    course_code = request.POST.get("course-code", "").strip()
+    
+    if not course_code:
+        return HttpResponseBadRequest("Course code is required!")
+    
+    # find the course
+    course = Course.objects.filter(course=course_code).first()
+
+    if course is None:
+        return HttpResponseBadRequest("Course does not exist.")
+    
     # get the lecture (optional)
     lecture_id = request.POST.get("lecture_id", "").strip()
     lecture = None
     
-    if lecture_id:
-        if not lecture_id.isdigit():
-            return HttpResponseBadRequest("Invalid lecture ID!")
+    if not lecture_id:
+        return HttpResponseBadRequest("Invalid lecture ID!")
 
-        lecture = Lecture.objects.filter(id=int(lecture_id)).first()
+    lecture = Lecture.objects.filter(id=int(lecture_id)).first()
 
-        if lecture is None:
-            return HttpResponseBadRequest("Lecture does not exist!")
+    if lecture is None:
+        return HttpResponseBadRequest("Lecture does not exist!")
+        
+    # ensure the lecture belongs to the specified course
+    if lecture.course_id != course.id:
+        return HttpResponseBadRequest("Lecture does not belong to the specified course!")
 
     # save the upload to the database
     QRCodeUpload.objects.create(
@@ -318,5 +352,42 @@ def dumpUploads(request):
 # HW6  — getUploads
 # ---------------------------------------------------------------------------
 
+from django.utils import timezone
 
 
+@require_GET
+def getUploads(request):
+    # only instructors can access this endpoint
+    if not request.user.is_authenticated:
+        return HttpResponse("Unauthorized", status=401)
+
+    if not InstructorProfile.objects.filter(user=request.user).exists():
+        return HttpResponse("Unauthorized", status=401)
+
+    # get the course number from the URL
+    course = request.GET.get("course", "").strip()
+
+    if not course:
+        return JsonResponse(
+            {"error": "Missing course parameter"},
+            status=400
+        )
+
+    # retrieve valid uploads for the course
+    uploads = getUploadsForCourse(course)
+
+    # convert uploads to JSON-compatible dictionaries
+    data = []
+
+    for upload in uploads:
+        local_time = timezone.localtime(
+            upload.uploaded_at,
+            CDT
+        )
+
+        data.append({
+            "username": upload.student.user.username,
+            "upload_time": local_time.strftime("%Y-%m-%d %H:%M:%S")
+        })
+
+    return JsonResponse(data, safe=False)
