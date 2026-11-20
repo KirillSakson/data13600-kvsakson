@@ -199,7 +199,7 @@ class QRCodeUpload(models.Model):
         blank=True,
     )
     image = models.ImageField(upload_to="qr_uploads/")
-    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_at = models.DateTimeField(default=timezone.now)
     is_valid = models.BooleanField(default=False)
 
     def __str__(self):
