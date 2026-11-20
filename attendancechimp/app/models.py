@@ -24,6 +24,7 @@ import logging
 import string
 import random
 import uuid
+import re
 
 logger = logging.getLogger(__name__) # set up tracking, auditing, and debugging
                                                                # allows using logger.warning(), logger.error(), 
@@ -94,18 +95,39 @@ class Course(models.Model):
     day_fri = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.code + ": " + self.name
+        return self.course + ": " + self.name
     
     def meets_on_day(self, weekday):
-        days = {
-            0: self.day_mon,
-            1: self.day_tue,
-            2: self.day_wed,
-            3: self.day_thu,
-            4: self.day_fri,
-        }
+        if weekday < 0 or weekday > 4:
+            return False
 
-        return days.get(weekday, False)
+        days = [
+            self.day_mon,
+            self.day_tue,
+            self.day_wed,
+            self.day_thu,
+            self.day_fri,
+        ]
+
+        # Use explicit weekday fields when populated
+        if any(days):
+            return days[weekday]
+
+        # Fallback for courses storing weekdays in meeting_schedule
+        day_names = [
+            ("Mon", "Monday"),
+            ("Tue", "Tuesday"),
+            ("Wed", "Wednesday"),
+            ("Thu", "Thursday"),
+            ("Fri", "Friday"),
+        ]
+
+        schedule = self.meeting_schedule or ""
+
+        return any(
+            re.search(r"\b" + name + r"\b", schedule, re.IGNORECASE)
+            for name in day_names[weekday]
+        )
 
 # ---------------------------------------------------------------------------
 # Enrollment
@@ -132,7 +154,7 @@ class Enrollment(models.Model):
         ]
 
     def __str__(self):
-        return self.student.student_number + " - " + self.course.code
+        return self.student.student_number + " - " + self.course.course
 
 # ---------------------------------------------------------------------------
 # Lecture
@@ -152,7 +174,7 @@ class Lecture(models.Model):
     qr_identifier = models.UUIDField(default=uuid.uuid4, unique=True)
 
     def __str__(self):
-        return self.course.code + " lecture " + str(self.id)
+        return self.course.course + " lecture " + str(self.id)
 
 
 # ---------------------------------------------------------------------------
@@ -199,7 +221,7 @@ def enroll_student(student, course):
     operation, and returns the new Enrollment instance.
     """
 
-    logger.info("Trying to enroll %s in %s", student.student_number, course.code)
+    logger.info("Trying to enroll %s in %s", student.student_number, course.course)
 
     if Enrollment.objects.filter(student=student, course=course).count() > 0:
         raise ValueError("The student is already enrolled in this course")
@@ -207,7 +229,7 @@ def enroll_student(student, course):
     enrollment = Enrollment(student=student, course=course)
     enrollment.save()
 
-    logger.info("Enrolled %s in %s", student.student_number, course.code)
+    logger.info("Enrolled %s in %s", student.student_number, course.course)
     return enrollment
 
 
@@ -219,7 +241,7 @@ def getUploadsForCourse(course):
         return []
 
     # get uploads associated with this course
-    uploads = QRCodeUpload.objects.filter(lecture__course=course_obj)
+    uploads = QRCodeUpload.objects.filter(lecture__course=course_obj).select_related("student__user", "lecture")
 
     valid_uploads = []
     chicago_tz = ZoneInfo("America/Chicago")
