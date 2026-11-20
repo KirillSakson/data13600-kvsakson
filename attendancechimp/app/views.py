@@ -169,7 +169,7 @@ def createCourse(request):
 
     # get data from the form
     course_name = request.POST.get("course-name", "").strip()
-    course_code = request.POST.get("course-code", "").strip().upper()
+    course_code = request.POST.get("course-code", "").strip()
     start_time = request.POST.get("start-time", "")
     end_time = request.POST.get("end-time", "")
 
@@ -297,7 +297,7 @@ def createQRCodeUpload(request):
         if not course_code or not lecture_id:
             return HttpResponseBadRequest("Both course code and lecture are required.")
 
-        course = Course.objects.filter(course=course_code).first()
+        course = Course.objects.filter(course__iexact=course_code).first()
 
         if course is None:
             return HttpResponseBadRequest("Course does not exist!")

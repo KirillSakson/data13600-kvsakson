@@ -235,8 +235,7 @@ def enroll_student(student, course):
 
 def getUploadsForCourse(course):
     # find the course by its course number
-    course_obj = Course.objects.filter(course=course).first()
-
+    course_obj = Course.objects.filter(course__iexact=course).first()
     if course_obj is None:
         return []
 
