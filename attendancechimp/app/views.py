@@ -244,15 +244,6 @@ def createLecture(request):
     # get the selected course name and qrdata
     course_name = request.POST.get("choice", "").strip()
     qrdata = request.POST.get("qrdata")
-    lecture_date = request.POST.get("lecture_date", "").strip()
-
-    if lecture_date:
-        try:
-            parsed_date = datetime.strptime(lecture_date, "%Y-%m-%d").date()
-        except ValueError:
-            return HttpResponseBadRequest("Invalid date format!")
-    else:
-        parsed_date = datetime.now(CDT).date()
 
     if not course_name:
         return HttpResponseBadRequest("Missing course name!")
@@ -263,17 +254,10 @@ def createLecture(request):
     if course is None:
         return HttpResponseBadRequest("Course does not exist!")
     
-    if not lecture_date:
-        return HttpResponseBadRequest("Missing lecture date!")
-    try:
-        parsed_date = datetime.strptime(lecture_date, "%Y-%m-%d").date()
-    except ValueError:
-        return HttpResponseBadRequest("Invalid date format!")
-    
     # prepare lecture information
     lecture_data = {
         "course": course,
-        "date": parsed_date,
+        "date": datetime.now(CDT).date()
     }
     
     # use explicitly provided QR data if available
