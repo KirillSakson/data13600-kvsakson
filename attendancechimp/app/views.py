@@ -16,8 +16,8 @@ import zoneinfo
 import json
 import io
 
-from .models import (InstructorProfile, StudentProfile, Course, Lecture, QRCodeUpload, getUploadsForCourse)
-#                      Enrollment, QRCodeUpload, is_instructor, is_student, getUploadsForCourse
+from .models import (InstructorProfile, StudentProfile, Course, Lecture, QRCodeUpload, getUploadsForCourse, decodeQR)
+#                      Enrollment, is_instructor, is_student, getUploadsForCourse
 
 CDT = zoneinfo.ZoneInfo("America/Chicago")
 
@@ -146,13 +146,7 @@ def new_lecture(request):
 
 @login_required
 def new_qr_upload(request):
-    lectures = Lecture.objects.all().order_by("-date")
-
-    context = {
-        "lectures": lectures,
-    }
-
-    return render(request, "app/new_qr_upload.html", context)
+    return render(request, "app/new_qr_upload.html")
 
 
 @csrf_exempt
@@ -247,8 +241,18 @@ def createLecture(request):
     if not InstructorProfile.objects.filter(user=request.user).exists():
         return HttpResponse("Unauthorized", status=401)
 
-    # get the selected course name
+    # get the selected course name and qrdata
     course_name = request.POST.get("choice", "").strip()
+    qrdata = request.POST.get("qrdata")
+    lecture_date = request.POST.get("lecture_date", "").strip()
+
+    if lecture_date:
+        try:
+            parsed_date = datetime.strptime(lecture_date, "%Y-%m-%d").date()
+        except ValueError:
+            return HttpResponseBadRequest("Invalid date format!")
+    else:
+        parsed_date = datetime.now(CDT).date()
 
     if not course_name:
         return HttpResponseBadRequest("Missing course name!")
@@ -258,12 +262,26 @@ def createLecture(request):
 
     if course is None:
         return HttpResponseBadRequest("Course does not exist!")
+    
+    if not lecture_date:
+        return HttpResponseBadRequest("Missing lecture date!")
+    try:
+        parsed_date = datetime.strptime(lecture_date, "%Y-%m-%d").date()
+    except ValueError:
+        return HttpResponseBadRequest("Invalid date format!")
+    
+    # prepare lecture information
+    lecture_data = {
+        "course": course,
+        "date": parsed_date,
+    }
+    
+    # use explicitly provided QR data if available
+    if qrdata:
+        lecture_data["qr_identifier"] = qrdata
 
     # create a lecture associated with this course
-    Lecture.objects.create(
-        course=course,
-        date=datetime.now(CDT).date(),
-    )
+    Lecture.objects.create(**lecture_data)
 
     return HttpResponse("Lecture created successfully.", status=200)
 
@@ -286,40 +304,28 @@ def createQRCodeUpload(request):
     if image is None:
         return HttpResponseBadRequest("No image uploaded!")
     
-    # get the course code and lecture id
-    course_code = request.POST.get("course-code", "").strip()
-    lecture_id = request.POST.get("lecture_id", "").strip()
-    lecture = None
+    # decode the QR code
+    qr_data = decodeQR(image)
     
-    if course_code or lecture_id:
-        # if either field is provided, require both
-        if not course_code or not lecture_id:
-            return HttpResponseBadRequest("Both course code and lecture are required.")
+    # find the lecture matching the decoded identifier
+    lecture = None
 
-        course = Course.objects.filter(course__iexact=course_code).first()
+    if qr_data is not None:
+        lecture = Lecture.objects.filter(qr_identifier=qr_data).first()
 
-        if course is None:
-            return HttpResponseBadRequest("Course does not exist!")
-
-        if not lecture_id.isdigit():
-            return HttpResponseBadRequest("Invalid lecture ID!")
-
-        lecture = Lecture.objects.filter(
-            id=int(lecture_id),
-            course=course
-        ).first()
-
-        if lecture is None:
-            return HttpResponseBadRequest("Lecture does not belong to the specified course!")
-
-    # save the upload to the database
+    # save the upload, even if the QR code is invalid
     QRCodeUpload.objects.create(
         student=student,
         image=image,
-        lecture=lecture,
+        lecture=lecture
     )
+    
+    # invalid QR code or no matching lecture
+    if lecture is None:
+        return JsonResponse({"error": "Invalid QR code"}, status=400)
 
-    return HttpResponse("QR code uploaded successfully.", status=200)
+    # valid QR code
+    return JsonResponse({"status": "ok"}, status=200)
 
 
 @require_GET

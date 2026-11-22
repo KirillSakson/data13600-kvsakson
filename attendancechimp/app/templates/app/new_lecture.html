@@ -40,6 +40,22 @@
           {% endfor %}
         </select>
 
+        <div class="form-field">
+          <label for="qrdata">QR Identifier (optional):</label>
+          <input
+            type="text"
+            id="qrdata"
+            name="qrdata"
+            placeholder="Leave blank to generate automatically"
+            maxlength="255"
+          />
+        </div>
+
+        <div class="form-field">
+          <label for="lecture_date">Lecture Date:</label>
+          <input type="date" id="lecture_date" name="lecture_date" required />
+        </div>
+
         <p><button type="submit">Create Lecture</button></p>
       </form>
     </div>

@@ -26,6 +26,11 @@ import random
 import uuid
 import re
 from django.db.models import Q
+import secrets
+import string
+from PIL import Image, UnidentifiedImageError
+from pyzbar.pyzbar import decode
+
 
 logger = logging.getLogger(__name__) # set up tracking, auditing, and debugging
                                                                # allows using logger.warning(), logger.error(), 
@@ -161,6 +166,13 @@ class Enrollment(models.Model):
 # Lecture
 # ---------------------------------------------------------------------------
 
+def generate_qr_identifier():
+    characters = string.ascii_letters + string.digits
+
+    return "".join(
+        secrets.choice(characters) for _ in range(16)
+    )
+
 class Lecture(models.Model):
     """Represent one lecture of a course.
 
@@ -172,7 +184,7 @@ class Lecture(models.Model):
     id = models.AutoField(primary_key=True)
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     date = models.DateField()
-    qr_identifier = models.UUIDField(default=uuid.uuid4, unique=True)
+    qr_identifier = models.CharField(max_length=255, default=generate_qr_identifier, unique=True)
 
     def __str__(self):
         return self.course.course + " lecture " + str(self.id)
@@ -261,3 +273,28 @@ def getUploadsForCourse(course):
             valid_uploads.append(upload)
 
     return valid_uploads
+
+
+def decodeQR(image):
+    try:
+        # start reading the image from the beginning
+        image.seek(0)
+
+        # open and decode the image
+        with Image.open(image) as img:
+            qr_codes = decode(img)
+
+            if not qr_codes:
+                return None
+
+            return qr_codes[0].data.decode("utf-8")
+
+    except (UnidentifiedImageError, OSError, ValueError, UnicodeDecodeError):
+        return None
+
+    finally:
+        # reset the file pointer so Django can save the image later
+        try:
+            image.seek(0)
+        except (AttributeError, OSError, ValueError):
+            pass
